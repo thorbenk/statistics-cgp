@@ -10,6 +10,7 @@ find_package(HDF5 COMPONENTS C HL REQUIRED)
 find_package(CGP REQUIRED)
 find_package(Chatty REQUIRED)
 find_package(VecVec REQUIRED)
+find_package(Vigra REQUIRED)
 include_directories(${CGP_INCLUDE_DIR})
 
 add_executable(cgp_statistics
@@ -17,6 +18,7 @@ add_executable(cgp_statistics
 )
 target_link_libraries(cgp_statistics
     ${HDF5_LIBRARIES}
+    ${VIGRA_IMPEX_LIBRARY}
     ${CHATTY_LIBRARY}
     ${VECVEC_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
