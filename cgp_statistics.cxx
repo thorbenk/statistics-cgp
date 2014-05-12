@@ -128,7 +128,8 @@ int main(int argc, char** argv) {
             cout << "compressing with " << cname << flush;
             
             ArrayVector<char> dest;
-            double avgTime = 0.0;
+            double avgTimeCompress   = 0.0;
+            double avgTimeUncompress = 0.0;
             double totSize = 0.0;
             double avgCompression = 0.0;
         
@@ -144,14 +145,23 @@ int main(int argc, char** argv) {
                 totSize += tg.size()*sizeof(uint32_t);
                 TIC;
                 compress(reinterpret_cast<const char*>(tg.data()), tg.size()*sizeof(uint32_t), dest, cflag);
-                avgTime += TOCN;
+                avgTimeCompress += TOCN;
                 avgCompression += dest.size();
+                
+                TIC; 
+                uncompress(reinterpret_cast<const char *>(dest.data()),
+                           dest.size(),
+                           reinterpret_cast<char *>(tg.data()), sizeof(uint32_t)*tg.size(),
+                           cflag);
+                avgTimeUncompress += TOCN;
+                
                 f.cd_up();
             }
             avgCompression /= totSize;
             cout << endl;
-            cout << "  took on average     " << avgTime << endl;
-            cout << "  average compression " << avgCompression << endl;
+            cout << "  compress   " << avgTimeCompress << endl;
+            cout << "  uncompress " << avgTimeUncompress << endl;
+            cout << "  ratio      " << avgCompression << endl;
         }
     }
 }
