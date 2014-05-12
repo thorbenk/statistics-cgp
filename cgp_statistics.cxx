@@ -19,9 +19,28 @@ void statistic(const GeometryReader& g, int dimension) {
               << std::endl;
 }
 
-namespace po = boost::program_options;
+void supervoxelStatistics(const vigra::MultiArrayView<3, uint32_t>& seg) {
+    using namespace vigra;
+    using namespace vigra::acc;
+    AccumulatorChainArray<CoupledArrays<3, uint32_t, uint32_t>, 
+                                        Select<DataArg<1>, LabelArg<2>,
+                                        RegionCenter> > a;
+    auto start = createCoupledIterator(seg, seg);
+    auto end = start.getEndIterator();
+    extractFeatures(start, end, a);
+    double avg = 0.0;
+    for(size_t i=1; i<=a.maxRegionLabel(); ++i) {
+        avg += get<Count>(a,i);
+    }
+    avg /= ((double)a.maxRegionLabel());
+    std::cout << "avg supervoxel size: " << avg << std::endl;
+}
+
 
 int main(int argc, char** argv) {
+    namespace po = boost::program_options;
+    using namespace vigra;
+    
     po::options_description desc("Allowed options");
     desc.add_options()
         ("help", "produce help message")
@@ -56,38 +75,25 @@ int main(int argc, char** argv) {
         return 1;
     }
     
-    using namespace vigra;
-    using namespace vigra::acc;
     
-    if(segFile.size()) {
+    if(!segFile.empty()) {
         std::cout << "* Loading segmentation from " << segFile << "/" << segGroup << std::endl;
         HDF5File f(segFile, HDF5File::OpenReadOnly);
         MultiArray<3, uint32_t> seg;
         f.readAndResize(segGroup, seg);
         f.close();
-        
-        AccumulatorChainArray<CoupledArrays<3, uint32_t, uint32_t>, 
-                                            Select<DataArg<1>, LabelArg<2>,
-                                            RegionCenter> > a;
-        auto start = createCoupledIterator(seg, seg);
-        auto end = start.getEndIterator();
-        extractFeatures(start, end, a);
-        double avg = 0.0;
-        for(size_t i=1; i<=a.maxRegionLabel(); ++i) {
-            avg += get<Count>(a,i);
-        }
-        avg /= ((double)a.maxRegionLabel());
-        std::cout << "avg supervoxel size: " << avg << std::endl;
+        supervoxelStatistics(seg);
     }
-   
-    GeometryReader g(geomFile, GeometryReader::EnableZeroSetBoundsQuery |
-                               GeometryReader::EnableOneSetBoundsQuery |
-                               GeometryReader::EnableTwoSetBoundsQuery |
-                               GeometryReader::EnableOneSetBoundedByQuery |
-                               GeometryReader::EnableTwoSetBoundedByQuery |
-                               GeometryReader::EnableThreeSetBoundedByQuery);
     
-    for(int d=1; d<3; ++d) {
-        statistic(g, d);
+    if(!geomFile.empty()) {
+        GeometryReader g(geomFile, GeometryReader::EnableZeroSetBoundsQuery |
+                                GeometryReader::EnableOneSetBoundsQuery |
+                                GeometryReader::EnableTwoSetBoundsQuery |
+                                GeometryReader::EnableOneSetBoundedByQuery |
+                                GeometryReader::EnableTwoSetBoundedByQuery |
+                                GeometryReader::EnableThreeSetBoundedByQuery);
+        for(int d=1; d<3; ++d) {
+            statistic(g, d);
+        }
     }
 }
