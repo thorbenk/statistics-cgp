@@ -128,7 +128,9 @@ int main(int argc, char** argv) {
             cout << "compressing with " << cname << flush;
             
             ArrayVector<char> dest;
-            double avg = 0.0;
+            double avgTime = 0.0;
+            double totSize = 0.0;
+            double avgCompression = 0.0;
         
             //void compress(char const * source, std::size_t size, ArrayVector<char> & dest, CompressionMethod method);
             HDF5File f(tgFile, HDF5File::OpenReadOnly);
@@ -139,12 +141,17 @@ int main(int argc, char** argv) {
                 cout << "." << flush;
                 f.cd(x);
                 f.readAndResize("topological-grid", tg);
+                totSize += tg.size()*sizeof(uint32_t);
                 TIC;
                 compress(reinterpret_cast<const char*>(tg.data()), tg.size()*sizeof(uint32_t), dest, cflag);
-                avg += TOCN;
+                avgTime += TOCN;
+                avgCompression += dest.size();
                 f.cd_up();
             }
-            cout << endl << "  took on average " << avg << endl;
+            avgCompression /= totSize;
+            cout << endl;
+            cout << "  took on average     " << avgTime << endl;
+            cout << "  average compression " << avgCompression << endl;
         }
     }
 }
