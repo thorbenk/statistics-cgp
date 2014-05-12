@@ -50,6 +50,11 @@ int main(int argc, char** argv) {
         segFile = s.substr(0,pos);
         segGroup = s.substr(pos+1,s.size());
     } 
+    if (geomFile.empty() && segFile.empty()) {
+        cout << "Error: Need at least one of --geom and --seg options!" << endl << endl;
+        cout << desc << endl;
+        return 1;
+    }
     
     using namespace vigra;
     using namespace vigra::acc;
