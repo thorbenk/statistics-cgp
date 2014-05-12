@@ -133,10 +133,10 @@ int main(int argc, char** argv) {
             double totSize = 0.0;
             double avgCompression = 0.0;
         
-            //void compress(char const * source, std::size_t size, ArrayVector<char> & dest, CompressionMethod method);
             HDF5File f(tgFile, HDF5File::OpenReadOnly);
             f.cd("blocks");
             auto ls = f.ls();
+            std::sort(ls.begin(), ls.end());
             cout << " (" << ls.size() << " blocks) " << flush;
             for(const auto& x : ls) {
                 cout << "." << flush;
