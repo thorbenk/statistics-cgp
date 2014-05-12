@@ -1,0 +1,49 @@
+FIND_PATH(
+    CGP_INCLUDE_DIR
+    NAMES cgp/cgp.hxx
+)
+FIND_PROGRAM(
+    CGPX_CMD
+    NAMES cgpx
+)
+FIND_PROGRAM(
+    CGPR_CMD
+    NAMES cgpr
+)
+
+FIND_FILE(
+    CGPX_MEX
+    NAMES cgpx.mexa64
+    PATHS ${CGP_INCLUDE_DIR}/../mex
+)
+
+FIND_FILE(
+    CGPR_MEX
+    NAMES cgpr.mexa64
+    PATHS ${CGP_INCLUDE_DIR}/../mex
+)
+
+SET(CGP_MEX_PATH ${CGP_INCLUDE_DIR}/../mex)
+
+find_package(VTK)
+if(VTK_FOUND)
+    add_definitions(-DHAVE_VTK=1)
+    include(${VTK_USE_FILE})
+endif()
+
+SET(CGP_FOUND FALSE)
+IF(CGP_INCLUDE_DIR AND CGPX_CMD AND CGPR_CMD)
+    SET(CGP_FOUND TRUE)
+    IF(NOT CGP_FIND_QUIETLY)
+        MESSAGE(STATUS "Found CGP")
+        MESSAGE(STATUS "  > include dir: ${CGP_INCLUDE_DIR}")
+        MESSAGE(STATUS "  > cgpx:        ${CGPX_CMD}")
+        MESSAGE(STATUS "  > cgpr:        ${CGPR_CMD}")
+        MESSAGE(STATUS "  > VTK:         ${VTK_FOUND}") 
+    ENDIF(NOT CGP_FIND_QUIETLY)
+ELSE(CGP_INCLUDE_DIR AND CGPX_CMD AND CGPR_CMD)
+    IF (CGP_FIND_REQUIRED)
+        MESSAGE(FATAL_ERROR "Could not find CGP")
+    ENDIF (CGP_FIND_REQUIRED)
+ENDIF(CGP_INCLUDE_DIR AND CGPX_CMD AND CGPR_CMD)
+

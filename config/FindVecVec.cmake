@@ -1,0 +1,10 @@
+# This module finds an installed VecVec package.
+
+find_package(PackageHandleStandardArgs REQUIRED)
+
+FIND_PATH(VECVEC_INCLUDE_DIR NAMES vecvec.hxx)
+FIND_LIBRARY(VECVEC_LIBRARY NAMES vecvec)
+
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(VecVec
+    REQUIRED_VARS VECVEC_INCLUDE_DIR VECVEC_LIBRARY)
+
