@@ -36,6 +36,7 @@ int main(int argc, char** argv) {
    
     std::string geomFile;
     std::string segFile;
+    std::string segGroup;
     if (vm.count("help")) {
         cout << desc << endl;
         return 1;
@@ -44,24 +45,35 @@ int main(int argc, char** argv) {
         geomFile = vm["geom"].as<std::string>();
     } 
     if (vm.count("seg")) {
-        segFile = vm["seg"].as<std::string>();
+        std::string s = vm["seg"].as<std::string>();
+        auto pos = s.find_last_of("/");
+        segFile = s.substr(0,pos);
+        segGroup = s.substr(pos+1,s.size());
     } 
     
     using namespace vigra;
     using namespace vigra::acc;
     
-    HDF5File f(segFile, HDF5File::OpenReadOnly);
-    MultiArray<3, uint32_t> seg;
-    f.readAndResize("seg", seg);
-    f.close();
-    
-    AccumulatorChainArray<CoupledArrays<3, uint32_t, uint32_t>, 
-                                        Select<DataArg<1>, LabelArg<2>,
-                                        RegionCenter> > a;
-    auto start = createCoupledIterator(seg, seg);
-    auto end = start.getEndIterator();
-    extractFeatures(start, end, a);
-    std::cout << get<Count>(a,1);
+    if(segFile.size()) {
+        std::cout << "* Loading segmentation from " << segFile << "/" << segGroup << std::endl;
+        HDF5File f(segFile, HDF5File::OpenReadOnly);
+        MultiArray<3, uint32_t> seg;
+        f.readAndResize(segGroup, seg);
+        f.close();
+        
+        AccumulatorChainArray<CoupledArrays<3, uint32_t, uint32_t>, 
+                                            Select<DataArg<1>, LabelArg<2>,
+                                            RegionCenter> > a;
+        auto start = createCoupledIterator(seg, seg);
+        auto end = start.getEndIterator();
+        extractFeatures(start, end, a);
+        double avg = 0.0;
+        for(size_t i=1; i<=a.maxRegionLabel(); ++i) {
+            avg += get<Count>(a,i);
+        }
+        avg /= ((double)a.maxRegionLabel());
+        std::cout << "avg supervoxel size: " << avg << std::endl;
+    }
    
     GeometryReader g(geomFile, GeometryReader::EnableZeroSetBoundsQuery |
                                GeometryReader::EnableOneSetBoundsQuery |
