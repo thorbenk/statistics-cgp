@@ -144,14 +144,14 @@ int main(int argc, char** argv) {
                 f.readAndResize("topological-grid", tg);
                 totSize += tg.size()*sizeof(uint32_t);
                 TIC;
-                compress(reinterpret_cast<const char*>(tg.data()), tg.size()*sizeof(uint32_t), dest, cflag);
+                compress(reinterpret_cast<const char*>(tg.data()), tg.size()*sizeof(uint32_t),
+                         dest, cflag);
                 avgTimeCompress += TOCN;
                 avgCompression += dest.size();
                 
                 TIC; 
-                uncompress(reinterpret_cast<const char *>(dest.data()),
-                           dest.size(),
-                           reinterpret_cast<char *>(tg.data()), sizeof(uint32_t)*tg.size(),
+                uncompress(dest.data(), dest.size(),
+                           reinterpret_cast<char *>(tg.data()), tg.size()*sizeof(uint32_t),
                            cflag);
                 avgTimeUncompress += TOCN;
                 
