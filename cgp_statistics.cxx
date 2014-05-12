@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
         for(const auto& kv : cm) {
             const auto cname = kv.first;
             const auto cflag = kv.second;
-            cout << "compressing with " << cname << " ... " << flush;
+            cout << "compressing with " << cname << flush;
             
             ArrayVector<char> dest;
             double avg = 0.0;
@@ -134,7 +134,9 @@ int main(int argc, char** argv) {
             HDF5File f(tgFile, HDF5File::OpenReadOnly);
             f.cd("blocks");
             auto ls = f.ls();
+            cout << " (" << ls.size() << " blocks) " << flush;
             for(const auto& x : ls) {
+                cout << "." << flush;
                 f.cd(x);
                 f.readAndResize("topological-grid", tg);
                 TIC;
@@ -142,7 +144,7 @@ int main(int argc, char** argv) {
                 avg += TOCN;
                 f.cd_up();
             }
-            cout << " (" << ls.size() << " blocks)" << " took on average " << avg << endl;
+            cout << endl << "  took on average " << avg << endl;
         }
     }
 }
