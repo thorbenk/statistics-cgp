@@ -56,6 +56,8 @@ int main(int argc, char** argv) {
          "seg file")
         ("tg", po::value<std::string>(),
          "tg file")
+        ("maxTgBlocks", po::value<int>(),
+         "maximum number of tg blocks considered")
     ;
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -65,6 +67,8 @@ int main(int argc, char** argv) {
     std::string segFile;
     std::string segGroup;
     std::string tgFile;
+    int maxTgBlocks = 10;
+    
     if (vm.count("help")) {
         cout << desc << endl;
         return 1;
@@ -81,6 +85,9 @@ int main(int argc, char** argv) {
         segFile = s.substr(0,pos);
         segGroup = s.substr(pos+1,s.size());
     } 
+    if (vm.count("maxTgBlocks")) {
+        maxTgBlocks = vm["maxTgBlocks"].as<int>();
+    }
     if (geomFile.empty() && segFile.empty() && tgFile.empty()) {
         cout << "Error: Need at least one of --geom and --seg options!" << endl << endl;
         cout << desc << endl;
@@ -127,6 +134,7 @@ int main(int argc, char** argv) {
         
         MultiArray<3, uint32_t> tg;
 
+        int n = 0;
         for(const auto& kv : cm) {
             const auto cname = kv.first;
             const auto cflag = kv.second;
@@ -144,6 +152,8 @@ int main(int argc, char** argv) {
             std::sort(ls.begin(), ls.end());
             cout << " (" << ls.size() << " blocks) " << flush;
             for(const auto& x : ls) {
+                if(n >= maxTgBlocks) { break; }
+                
                 cout << "c" << flush;
                 f.cd(x);
                 f.readAndResize("topological-grid", tg);
@@ -164,6 +174,7 @@ int main(int argc, char** argv) {
                 avgTimeUncompress += TOCN;
                 
                 f.cd_up();
+                ++n;
             }
             avgTimeCompress   /= ((double)ls.size());
             avgTimeUncompress /= ((double)ls.size());
