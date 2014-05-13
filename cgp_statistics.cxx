@@ -1,4 +1,5 @@
 #include <map>
+#include <thread>
 
 #include <boost/program_options.hpp>
 
@@ -119,6 +120,9 @@ int main(int argc, char** argv) {
         cm["BLOSC_FAST         "] = BLOSC_FAST;
         cm["BLOSC_BEST         "] = BLOSC_BEST;
         
+        int nthreads = std::thread::hardware_concurrency();
+        cout << "nthreads = " << nthreads << endl;
+        
         USETICTOC;
         
         MultiArray<3, uint32_t> tg;
@@ -147,7 +151,7 @@ int main(int argc, char** argv) {
                 
                 TIC;
                 compress(reinterpret_cast<const char*>(tg.data()), tg.size()*sizeof(uint32_t),
-                         dest, cflag, sizeof(uint32_t));
+                         dest, cflag, sizeof(uint32_t), nthreads);
                 avgTimeCompress += TOCN;
                 avgCompression += dest.size();
                 
@@ -156,7 +160,7 @@ int main(int argc, char** argv) {
                 TIC; 
                 uncompress(dest.data(), dest.size(),
                            reinterpret_cast<char *>(tg.data()), tg.size()*sizeof(uint32_t),
-                           cflag);
+                           cflag, nthreads);
                 avgTimeUncompress += TOCN;
                 
                 f.cd_up();
