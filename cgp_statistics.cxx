@@ -134,7 +134,6 @@ int main(int argc, char** argv) {
         
         MultiArray<3, uint32_t> tg;
 
-        int n = 0;
         for(const auto& kv : cm) {
             const auto cname = kv.first;
             const auto cflag = kv.second;
@@ -151,6 +150,7 @@ int main(int argc, char** argv) {
             auto ls = f.ls();
             std::sort(ls.begin(), ls.end());
             cout << " (" << ls.size() << " blocks) " << flush;
+            int n = 0;
             for(const auto& x : ls) {
                 if(n >= maxTgBlocks) { break; }
                 
