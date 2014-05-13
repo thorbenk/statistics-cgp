@@ -176,8 +176,8 @@ int main(int argc, char** argv) {
                 f.cd_up();
                 ++n;
             }
-            avgTimeCompress   /= ((double)ls.size());
-            avgTimeUncompress /= ((double)ls.size());
+            avgTimeCompress   /= ((double)n);
+            avgTimeUncompress /= ((double)n);
             avgCompression /= totSize;
             cout << endl;
             cout << "  compress   " << avgTimeCompress << " ms/block" << endl;
