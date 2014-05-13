@@ -110,13 +110,14 @@ int main(int argc, char** argv) {
     
     if(!tgFile.empty()) {
         std::map<std::string, CompressionMethod> cm;
-        cm["DEFAULT_COMPRESSION"] = DEFAULT_COMPRESSION;
         cm["NO_COMPRESSION     "] = NO_COMPRESSION;
         cm["ZLIB_NONE          "] = ZLIB_NONE;
         cm["ZLIB_FAST          "] = ZLIB_FAST;
         cm["ZLIB               "] = ZLIB;
         cm["ZLIB_BEST          "] = ZLIB_BEST;
         cm["LZ4                "] = LZ4;
+        cm["BLOSC_FAST         "] = BLOSC_FAST;
+        cm["BLOSC_BEST         "] = BLOSC_BEST;
         
         USETICTOC;
         
@@ -139,15 +140,18 @@ int main(int argc, char** argv) {
             std::sort(ls.begin(), ls.end());
             cout << " (" << ls.size() << " blocks) " << flush;
             for(const auto& x : ls) {
-                cout << "." << flush;
+                cout << "c" << flush;
                 f.cd(x);
                 f.readAndResize("topological-grid", tg);
                 totSize += tg.size()*sizeof(uint32_t);
+                
                 TIC;
                 compress(reinterpret_cast<const char*>(tg.data()), tg.size()*sizeof(uint32_t),
-                         dest, cflag);
+                         dest, cflag, sizeof(uint32_t));
                 avgTimeCompress += TOCN;
                 avgCompression += dest.size();
+                
+                cout << "u" << flush;
                 
                 TIC; 
                 uncompress(dest.data(), dest.size(),
@@ -157,10 +161,12 @@ int main(int argc, char** argv) {
                 
                 f.cd_up();
             }
+            avgTimeCompress   /= ((double)ls.size());
+            avgTimeUncompress /= ((double)ls.size());
             avgCompression /= totSize;
             cout << endl;
-            cout << "  compress   " << avgTimeCompress << endl;
-            cout << "  uncompress " << avgTimeUncompress << endl;
+            cout << "  compress   " << avgTimeCompress << " ms/block" << endl;
+            cout << "  uncompress " << avgTimeUncompress << " ms/block" << endl;
             cout << "  ratio      " << avgCompression << endl;
         }
     }

@@ -11,6 +11,7 @@ find_package(CGP REQUIRED)
 find_package(Chatty REQUIRED)
 find_package(VecVec REQUIRED)
 find_package(Vigra REQUIRED)
+
 include_directories(${CGP_INCLUDE_DIR})
 
 add_executable(cgp_statistics
