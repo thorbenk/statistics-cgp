@@ -56,6 +56,8 @@ int main(int argc, char** argv) {
          "seg file")
         ("tg", po::value<std::string>(),
          "tg file")
+        ("cwx", po::value<std::string>(),
+         "cwx file")
         ("maxTgBlocks", po::value<int>(),
          "maximum number of tg blocks considered")
     ;
@@ -67,6 +69,7 @@ int main(int argc, char** argv) {
     std::string segFile;
     std::string segGroup;
     std::string tgFile;
+    std::string cwxFile;
     int maxTgBlocks = 10;
     
     if (vm.count("help")) {
@@ -79,6 +82,9 @@ int main(int argc, char** argv) {
     if (vm.count("tg")) {
         tgFile = vm["tg"].as<std::string>();
     } 
+    if (vm.count("cwx")) {
+        cwxFile = vm["cwx"].as<std::string>();
+    } 
     if (vm.count("seg")) {
         std::string s = vm["seg"].as<std::string>();
         auto pos = s.find_last_of("/");
@@ -88,7 +94,7 @@ int main(int argc, char** argv) {
     if (vm.count("maxTgBlocks")) {
         maxTgBlocks = vm["maxTgBlocks"].as<int>();
     }
-    if (geomFile.empty() && segFile.empty() && tgFile.empty()) {
+    if (geomFile.empty() && segFile.empty() && tgFile.empty() && cwxFile.empty()) {
         cout << "Error: Need at least one of --geom and --seg options!" << endl << endl;
         cout << desc << endl;
         return 1;
@@ -178,6 +184,64 @@ int main(int argc, char** argv) {
             }
             avgTimeCompress   /= ((double)n);
             avgTimeUncompress /= ((double)n);
+            avgCompression /= totSize;
+            cout << endl;
+            cout << "  compress   " << avgTimeCompress << " ms/block" << endl;
+            cout << "  uncompress " << avgTimeUncompress << " ms/block" << endl;
+            cout << "  ratio      " << avgCompression << endl;
+        }
+    }
+    
+    if(!cwxFile.empty()) {
+        std::map<std::string, CompressionMethod> cm;
+        cm["NO_COMPRESSION     "] = NO_COMPRESSION;
+        cm["ZLIB_NONE          "] = ZLIB_NONE;
+        cm["ZLIB_FAST          "] = ZLIB_FAST;
+        cm["ZLIB               "] = ZLIB;
+        cm["ZLIB_BEST          "] = ZLIB_BEST;
+        cm["LZ4                "] = LZ4;
+        cm["BLOSC_FAST         "] = BLOSC_FAST;
+        cm["BLOSC_BEST         "] = BLOSC_BEST;
+        
+        int nthreads = std::thread::hardware_concurrency();
+        cout << "nthreads = " << nthreads << endl;
+        
+        USETICTOC;
+        
+        MultiArray<3, uint32_t> tg;
+
+        for(const auto& kv : cm) {
+            const auto cname = kv.first;
+            const auto cflag = kv.second;
+            cout << "compressing with " << cname << flush;
+            
+            ArrayVector<char> dest;
+            double avgTimeCompress   = 0.0;
+            double avgTimeUncompress = 0.0;
+            double totSize = 0.0;
+            double avgCompression = 0.0;
+        
+            HDF5File f(cwxFile, HDF5File::OpenReadOnly);
+            cout << "c" << flush;
+            f.readAndResize("cwx", tg);
+            totSize += tg.size()*sizeof(uint32_t);
+            
+            TIC;
+            compress(reinterpret_cast<const char*>(tg.data()), tg.size()*sizeof(uint32_t),
+                        dest, cflag, sizeof(uint32_t), nthreads);
+            avgTimeCompress += TOCN;
+            avgCompression += dest.size();
+            
+            cout << "u" << flush;
+            
+            TIC; 
+            uncompress(dest.data(), dest.size(),
+                        reinterpret_cast<char *>(tg.data()), tg.size()*sizeof(uint32_t),
+                        cflag, nthreads);
+            avgTimeUncompress += TOCN;
+            
+            f.cd_up();
+            
             avgCompression /= totSize;
             cout << endl;
             cout << "  compress   " << avgTimeCompress << " ms/block" << endl;
