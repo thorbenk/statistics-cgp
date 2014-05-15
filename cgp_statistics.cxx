@@ -1,3 +1,4 @@
+#include <iomanip>
 #include <map>
 #include <thread>
 
@@ -41,6 +42,20 @@ void supervoxelStatistics(const vigra::MultiArrayView<3, uint32_t>& seg) {
     std::cout << "avg supervoxel size: " << avg << std::endl;
 }
 
+struct CompressionStatistics {
+    CompressionStatistics()
+        : avgTimeCompress(0)
+        , avgTimeUncompress(0)
+        , totSize(0)
+        , avgCompression(0)
+        , avgBytesUncompressed(0) {}
+        
+    double avgTimeCompress;
+    double avgTimeUncompress;
+    double totSize;
+    double avgCompression;
+    double avgBytesUncompressed;
+};
 
 int main(int argc, char** argv) {
     namespace po = boost::program_options;
@@ -123,6 +138,9 @@ int main(int argc, char** argv) {
     }
     
     if(!tgFile.empty()) {
+        
+        std::map<std::string, CompressionStatistics> stats;
+        
         std::map<std::string, CompressionMethod> cm;
         cm["NO_COMPRESSION     "] = NO_COMPRESSION;
         cm["ZLIB_NONE          "] = ZLIB_NONE;
@@ -130,8 +148,16 @@ int main(int argc, char** argv) {
         cm["ZLIB               "] = ZLIB;
         cm["ZLIB_BEST          "] = ZLIB_BEST;
         cm["LZ4                "] = LZ4;
-        cm["BLOSC_FAST         "] = BLOSC_FAST;
-        cm["BLOSC_BEST         "] = BLOSC_BEST;
+        cm["BLOSC_BLOSCLZ_FAST "] = BLOSC_BLOSCLZ_FAST;
+        cm["BLOSC_LZ4_FAST     "] = BLOSC_LZ4_FAST; 
+        cm["BLOSC_LZ4HC_FAST   "] = BLOSC_LZ4HC_FAST;   
+        cm["BLOSC_SNAPPY_FAST  "] = BLOSC_SNAPPY_FAST;   
+        cm["BLOSC_ZLIB_FAST    "] = BLOSC_ZLIB_FAST;  
+        cm["BLOSC_BLOSCLZ_BEST "] = BLOSC_BLOSCLZ_BEST;  
+        cm["BLOSC_LZ4_BEST     "] = BLOSC_LZ4_BEST; 
+        cm["BLOSC_LZ4HC_BEST   "] = BLOSC_LZ4HC_BEST;   
+        cm["BLOSC_SNAPPY_BEST  "] = BLOSC_SNAPPY_BEST;  
+        cm["BLOSC_ZLIB_BEST    "] = BLOSC_ZLIB_BEST;    
         
         int nthreads = std::thread::hardware_concurrency();
         cout << "nthreads = " << nthreads << endl;
@@ -140,16 +166,14 @@ int main(int argc, char** argv) {
         
         MultiArray<3, uint32_t> tg;
 
+        //go over all compression methods available
         for(const auto& kv : cm) {
             const auto cname = kv.first;
             const auto cflag = kv.second;
             cout << "compressing with " << cname << flush;
             
             ArrayVector<char> dest;
-            double avgTimeCompress   = 0.0;
-            double avgTimeUncompress = 0.0;
-            double totSize = 0.0;
-            double avgCompression = 0.0;
+            CompressionStatistics stat;
         
             HDF5File f(tgFile, HDF5File::OpenReadOnly);
             f.cd("blocks");
@@ -163,13 +187,13 @@ int main(int argc, char** argv) {
                 cout << "c" << flush;
                 f.cd(x);
                 f.readAndResize("topological-grid", tg);
-                totSize += tg.size()*sizeof(uint32_t);
+                stat.totSize += tg.size()*sizeof(uint32_t);
                 
                 TIC;
                 compress(reinterpret_cast<const char*>(tg.data()), tg.size()*sizeof(uint32_t),
                          dest, cflag, sizeof(uint32_t), nthreads);
-                avgTimeCompress += TOCN;
-                avgCompression += dest.size();
+                stat.avgTimeCompress += TOCN;
+                stat.avgCompression += dest.size();
                 
                 cout << "u" << flush;
                 
@@ -177,19 +201,33 @@ int main(int argc, char** argv) {
                 uncompress(dest.data(), dest.size(),
                            reinterpret_cast<char *>(tg.data()), tg.size()*sizeof(uint32_t),
                            cflag, nthreads);
-                avgTimeUncompress += TOCN;
+                stat.avgTimeUncompress += TOCN;
                 
                 f.cd_up();
                 ++n;
             }
-            avgTimeCompress   /= ((double)n);
-            avgTimeUncompress /= ((double)n);
-            avgCompression /= totSize;
+            stat.avgTimeCompress   /= ((double)n);
+            stat.avgTimeUncompress /= ((double)n);
+            stat.avgCompression /= stat.totSize;
             cout << endl;
-            cout << "  compress   " << avgTimeCompress << " ms/block" << endl;
-            cout << "  uncompress " << avgTimeUncompress << " ms/block" << endl;
-            cout << "  ratio      " << avgCompression << endl;
+            cout << "  compress   " << stat.avgTimeCompress << " ms/block" << endl;
+            cout << "  uncompress " << stat.avgTimeUncompress << " ms/block" << endl;
+            cout << "  ratio      " << stat.avgCompression << endl;
+            
+            
+            stats[cname] = stat;
         }
+       
+        std::cout << "# method | compress | uncompress | ratio" << std::endl;
+        for(const auto& kv : stats) {
+            const CompressionStatistics& stat = kv.second;
+            std::cout << kv.first
+                      << " | " << setw(10) << stat.avgTimeCompress
+                      << " | " << setw(10) << stat.avgTimeUncompress
+                      << " | " << setw(10) << stat.avgCompression
+                      << std::endl;
+        }
+        
     }
     
     if(!cwxFile.empty()) {
@@ -200,8 +238,16 @@ int main(int argc, char** argv) {
         cm["ZLIB               "] = ZLIB;
         cm["ZLIB_BEST          "] = ZLIB_BEST;
         cm["LZ4                "] = LZ4;
-        cm["BLOSC_FAST         "] = BLOSC_FAST;
-        cm["BLOSC_BEST         "] = BLOSC_BEST;
+        cm["BLOSC_BLOSCLZ_FAST "] = BLOSC_BLOSCLZ_FAST;
+        cm["BLOSC_LZ4_FAST     "] = BLOSC_LZ4_FAST; 
+        cm["BLOSC_LZ4HC_FAST   "] = BLOSC_LZ4HC_FAST;   
+        cm["BLOSC_SNAPPY_FAST  "] = BLOSC_SNAPPY_FAST;   
+        cm["BLOSC_ZLIB_FAST    "] = BLOSC_ZLIB_FAST;  
+        cm["BLOSC_BLOSCLZ_BEST "] = BLOSC_BLOSCLZ_BEST;  
+        cm["BLOSC_LZ4_BEST     "] = BLOSC_LZ4_BEST; 
+        cm["BLOSC_LZ4HC_BEST   "] = BLOSC_LZ4HC_BEST;   
+        cm["BLOSC_SNAPPY_BEST  "] = BLOSC_SNAPPY_BEST;  
+        cm["BLOSC_ZLIB_BEST    "] = BLOSC_ZLIB_BEST;    
         
         int nthreads = std::thread::hardware_concurrency();
         cout << "nthreads = " << nthreads << endl;
