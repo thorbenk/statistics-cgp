@@ -10,6 +10,7 @@
 
 #include "supervoxels.hxx"
 #include "compressors.hxx"
+#include "blocking.h"
 
 int main(int argc, char** argv) {
     namespace po = boost::program_options;
@@ -90,6 +91,14 @@ int main(int argc, char** argv) {
         std::map<std::string, vigra::CompressionMethod> cl = compressorList();
         for(const auto& kv : cl) {
             files[kv.second].open("stat_"+toString(kv.second)+".txt", std::ios::trunc);
+            files[kv.second] /* 0 */ << "sizeBytesUncompressed "
+                             /* 1 */ << "sizeBytesUncompressed "
+                             /* 2 */ << "timeCompress "
+                             /* 3 */ << "timeUncompress "
+                             /* 4 */ << "msPerMB_compress "
+                             /* 5 */ << "msPerMB_uncompress "
+                             /* 6 */ << "compessionRatio"
+                                     << endl;
         }
         
         HDF5File f(tgFile, HDF5File::OpenReadOnly);
@@ -105,22 +114,30 @@ int main(int argc, char** argv) {
             f.cd(x);
             f.readAndResize("topological-grid", tg);
             f.cd_up();
-          
-            std::cout << "compressing shape=" << tg.shape() << std::endl;
-            auto stats = statCompressors(tg); 
+           
+            BW::Roi<3> roi({0,0,0}, tg.shape());
             
-            for(const auto& kv : stats) {
-                vigra::CompressionMethod cflag = kv.first;
-                const CompressionStatistics& stat = kv.second;
-                
-                files[cflag] /* 0 */ << stat.sizeBytesUncompressed << " "
-                             /* 1 */ << stat.sizeBytesUncompressed << " "
-                             /* 2 */ << stat.timeCompress << " "
-                             /* 3 */ << stat.timeUncompress << " "
-                             /* 4 */ << stat.msPerMB_compress() << " "
-                             /* 5 */ << stat.msPerMB_uncompress() << " "
-                             /* 6 */ << stat.compessionRatio()
-                                     << std::endl;
+            std::vector<int> L = {16, 32, 40, 45, 48, 50, 64};
+            for(int l : L) {
+                BW::Blocking<3> blocking(roi, {l,l,l});
+                for(const auto& x : blocking.blocks()) {
+                    const BW::Roi<3>& blockRoi = x.second;
+                    MultiArray<3, uint32_t> a = tg.subarray(blockRoi.p, blockRoi.q);
+                    cout << "compressing block=" << blockRoi.p << " ... " << blockRoi.q << endl;
+                    auto stats = statCompressors(a); 
+                    for(const auto& kv : stats) {
+                        vigra::CompressionMethod cflag = kv.first;
+                        const CompressionStatistics& stat = kv.second;
+                        files[cflag] /* 0 */ << stat.sizeBytesUncompressed << " "
+                                     /* 1 */ << stat.sizeBytesUncompressed << " "
+                                     /* 2 */ << stat.timeCompress << " "
+                                     /* 3 */ << stat.timeUncompress << " "
+                                     /* 4 */ << stat.msPerMB_compress() << " "
+                                     /* 5 */ << stat.msPerMB_uncompress() << " "
+                                     /* 6 */ << stat.compessionRatio()
+                                             << endl;
+                    }
+                }
             }
         }
         
