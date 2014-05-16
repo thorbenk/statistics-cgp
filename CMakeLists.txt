@@ -15,6 +15,7 @@ find_package(Vigra REQUIRED)
 include_directories(${CGP_INCLUDE_DIR})
 
 add_executable(cgp_statistics
+    supervoxels.cxx
     cgp_statistics.cxx
 )
 target_link_libraries(cgp_statistics

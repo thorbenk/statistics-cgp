@@ -4,43 +4,11 @@
 
 #include <boost/program_options.hpp>
 
-#include <vigra/accumulator.hxx>
 #include <vigra/hdf5impex.hxx>
 #include <vigra/compression.hxx>
 #include <vigra/timing.hxx>
 
-#include <cgp/GeometryReader.hxx>
-
-typedef unsigned int label_type;
-typedef short coordinate_type;
-typedef cgp::hdf5::GeometryReader<label_type, coordinate_type> GeometryReader;
-
-void statistic(const GeometryReader& g, int dimension) {
-    std::vector<size_t> sizes(g.maxLabel(dimension));
-    for(size_t i=1; i<g.maxLabel(dimension); ++i) {
-        sizes[i-1] = g.size(dimension, i);
-    }
-    std::cout << "average size for dim=" << dimension << " : "
-              << std::accumulate(sizes.begin(), sizes.end(), 0.0) / ((double)sizes.size())
-              << std::endl;
-}
-
-void supervoxelStatistics(const vigra::MultiArrayView<3, uint32_t>& seg) {
-    using namespace vigra;
-    using namespace vigra::acc;
-    AccumulatorChainArray<CoupledArrays<3, uint32_t, uint32_t>, 
-                                        Select<DataArg<1>, LabelArg<2>,
-                                        RegionCenter> > a;
-    auto start = createCoupledIterator(seg, seg);
-    auto end = start.getEndIterator();
-    extractFeatures(start, end, a);
-    double avg = 0.0;
-    for(size_t i=1; i<=a.maxRegionLabel(); ++i) {
-        avg += get<Count>(a,i);
-    }
-    avg /= ((double)a.maxRegionLabel());
-    std::cout << "avg supervoxel size: " << avg << std::endl;
-}
+#include "supervoxels.hxx"
 
 struct CompressionStatistics {
     CompressionStatistics()
@@ -57,10 +25,32 @@ struct CompressionStatistics {
     double avgBytesUncompressed;
 };
 
+std::map<std::string, vigra::CompressionMethod> compressorList() {
+    using namespace vigra;
+    std::map<std::string, CompressionMethod> cm;
+    cm["NO_COMPRESSION     "] = NO_COMPRESSION;
+    cm["ZLIB_NONE          "] = ZLIB_NONE;
+    cm["ZLIB_FAST          "] = ZLIB_FAST;
+    cm["ZLIB               "] = ZLIB;
+    cm["ZLIB_BEST          "] = ZLIB_BEST;
+    cm["LZ4                "] = LZ4;
+    cm["BLOSC_BLOSCLZ_FAST "] = BLOSC_BLOSCLZ_FAST;
+    cm["BLOSC_LZ4_FAST     "] = BLOSC_LZ4_FAST; 
+    cm["BLOSC_LZ4HC_FAST   "] = BLOSC_LZ4HC_FAST;   
+    cm["BLOSC_SNAPPY_FAST  "] = BLOSC_SNAPPY_FAST;   
+    cm["BLOSC_ZLIB_FAST    "] = BLOSC_ZLIB_FAST;  
+    cm["BLOSC_BLOSCLZ_BEST "] = BLOSC_BLOSCLZ_BEST;  
+    cm["BLOSC_LZ4_BEST     "] = BLOSC_LZ4_BEST; 
+    cm["BLOSC_LZ4HC_BEST   "] = BLOSC_LZ4HC_BEST;   
+    cm["BLOSC_SNAPPY_BEST  "] = BLOSC_SNAPPY_BEST;  
+    cm["BLOSC_ZLIB_BEST    "] = BLOSC_ZLIB_BEST; 
+    return cm;
+}
+
 int main(int argc, char** argv) {
     namespace po = boost::program_options;
     using namespace vigra;
-    using std::cout; using std::endl; using std::flush;
+    using std::cout; using std::endl; using std::flush; using std::setw;
     
     po::options_description desc("Allowed options");
     desc.add_options()
@@ -126,38 +116,14 @@ int main(int argc, char** argv) {
     }
     
     if(!geomFile.empty()) {
-        GeometryReader g(geomFile, GeometryReader::EnableZeroSetBoundsQuery |
-                                GeometryReader::EnableOneSetBoundsQuery |
-                                GeometryReader::EnableTwoSetBoundsQuery |
-                                GeometryReader::EnableOneSetBoundedByQuery |
-                                GeometryReader::EnableTwoSetBoundedByQuery |
-                                GeometryReader::EnableThreeSetBoundedByQuery);
-        for(int d=1; d<3; ++d) {
-            statistic(g, d);
-        }
+        gStatistics(geomFile);
     }
     
     if(!tgFile.empty()) {
         
         std::map<std::string, CompressionStatistics> stats;
         
-        std::map<std::string, CompressionMethod> cm;
-        cm["NO_COMPRESSION     "] = NO_COMPRESSION;
-        cm["ZLIB_NONE          "] = ZLIB_NONE;
-        cm["ZLIB_FAST          "] = ZLIB_FAST;
-        cm["ZLIB               "] = ZLIB;
-        cm["ZLIB_BEST          "] = ZLIB_BEST;
-        cm["LZ4                "] = LZ4;
-        cm["BLOSC_BLOSCLZ_FAST "] = BLOSC_BLOSCLZ_FAST;
-        cm["BLOSC_LZ4_FAST     "] = BLOSC_LZ4_FAST; 
-        cm["BLOSC_LZ4HC_FAST   "] = BLOSC_LZ4HC_FAST;   
-        cm["BLOSC_SNAPPY_FAST  "] = BLOSC_SNAPPY_FAST;   
-        cm["BLOSC_ZLIB_FAST    "] = BLOSC_ZLIB_FAST;  
-        cm["BLOSC_BLOSCLZ_BEST "] = BLOSC_BLOSCLZ_BEST;  
-        cm["BLOSC_LZ4_BEST     "] = BLOSC_LZ4_BEST; 
-        cm["BLOSC_LZ4HC_BEST   "] = BLOSC_LZ4HC_BEST;   
-        cm["BLOSC_SNAPPY_BEST  "] = BLOSC_SNAPPY_BEST;  
-        cm["BLOSC_ZLIB_BEST    "] = BLOSC_ZLIB_BEST;    
+        std::map<std::string, CompressionMethod> cm = compressorList();
         
         int nthreads = std::thread::hardware_concurrency();
         cout << "nthreads = " << nthreads << endl;
