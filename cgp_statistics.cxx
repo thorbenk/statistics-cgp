@@ -9,43 +9,7 @@
 #include <vigra/timing.hxx>
 
 #include "supervoxels.hxx"
-
-struct CompressionStatistics {
-    CompressionStatistics()
-        : avgTimeCompress(0)
-        , avgTimeUncompress(0)
-        , totSize(0)
-        , avgCompression(0)
-        , avgBytesUncompressed(0) {}
-        
-    double avgTimeCompress;
-    double avgTimeUncompress;
-    double totSize;
-    double avgCompression;
-    double avgBytesUncompressed;
-};
-
-std::map<std::string, vigra::CompressionMethod> compressorList() {
-    using namespace vigra;
-    std::map<std::string, CompressionMethod> cm;
-    cm["NO_COMPRESSION     "] = NO_COMPRESSION;
-    cm["ZLIB_NONE          "] = ZLIB_NONE;
-    cm["ZLIB_FAST          "] = ZLIB_FAST;
-    cm["ZLIB               "] = ZLIB;
-    cm["ZLIB_BEST          "] = ZLIB_BEST;
-    cm["LZ4                "] = LZ4;
-    cm["BLOSC_BLOSCLZ_FAST "] = BLOSC_BLOSCLZ_FAST;
-    cm["BLOSC_LZ4_FAST     "] = BLOSC_LZ4_FAST; 
-    cm["BLOSC_LZ4HC_FAST   "] = BLOSC_LZ4HC_FAST;   
-    cm["BLOSC_SNAPPY_FAST  "] = BLOSC_SNAPPY_FAST;   
-    cm["BLOSC_ZLIB_FAST    "] = BLOSC_ZLIB_FAST;  
-    cm["BLOSC_BLOSCLZ_BEST "] = BLOSC_BLOSCLZ_BEST;  
-    cm["BLOSC_LZ4_BEST     "] = BLOSC_LZ4_BEST; 
-    cm["BLOSC_LZ4HC_BEST   "] = BLOSC_LZ4HC_BEST;   
-    cm["BLOSC_SNAPPY_BEST  "] = BLOSC_SNAPPY_BEST;  
-    cm["BLOSC_ZLIB_BEST    "] = BLOSC_ZLIB_BEST; 
-    return cm;
-}
+#include "compressors.hxx"
 
 int main(int argc, char** argv) {
     namespace po = boost::program_options;
@@ -121,6 +85,46 @@ int main(int argc, char** argv) {
     
     if(!tgFile.empty()) {
         
+        std::map<vigra::CompressionMethod, std::ofstream> files;
+        
+        std::map<std::string, vigra::CompressionMethod> cl = compressorList();
+        for(const auto& kv : cl) {
+            files[kv.second].open("stat_"+toString(kv.second)+".txt", std::ios::trunc);
+        }
+        
+        HDF5File f(tgFile, HDF5File::OpenReadOnly);
+        f.cd("blocks");
+        auto ls = f.ls();
+        std::sort(ls.begin(), ls.end());
+        cout << " (" << ls.size() << " blocks) " << endl;
+        int n = 0;
+        for(const auto& x : ls) {
+            if(n >= maxTgBlocks) { break; }
+            
+            MultiArray<3, uint32_t> tg;
+            f.cd(x);
+            f.readAndResize("topological-grid", tg);
+            f.cd_up();
+          
+            std::cout << "compressing shape=" << tg.shape() << std::endl;
+            auto stats = statCompressors(tg); 
+            
+            for(const auto& kv : stats) {
+                vigra::CompressionMethod cflag = kv.first;
+                const CompressionStatistics& stat = kv.second;
+                
+                files[cflag] /* 0 */ << stat.sizeBytesUncompressed << " "
+                             /* 1 */ << stat.sizeBytesUncompressed << " "
+                             /* 2 */ << stat.timeCompress << " "
+                             /* 3 */ << stat.timeUncompress << " "
+                             /* 4 */ << stat.msPerMB_compress() << " "
+                             /* 5 */ << stat.msPerMB_uncompress() << " "
+                             /* 6 */ << stat.compessionRatio()
+                                     << std::endl;
+            }
+        }
+        
+#if 0
         std::map<std::string, CompressionStatistics> stats;
         
         std::map<std::string, CompressionMethod> cm = compressorList();
@@ -197,25 +201,8 @@ int main(int argc, char** argv) {
     }
     
     if(!cwxFile.empty()) {
-        std::map<std::string, CompressionMethod> cm;
-        cm["NO_COMPRESSION     "] = NO_COMPRESSION;
-        cm["ZLIB_NONE          "] = ZLIB_NONE;
-        cm["ZLIB_FAST          "] = ZLIB_FAST;
-        cm["ZLIB               "] = ZLIB;
-        cm["ZLIB_BEST          "] = ZLIB_BEST;
-        cm["LZ4                "] = LZ4;
-        cm["BLOSC_BLOSCLZ_FAST "] = BLOSC_BLOSCLZ_FAST;
-        cm["BLOSC_LZ4_FAST     "] = BLOSC_LZ4_FAST; 
-        cm["BLOSC_LZ4HC_FAST   "] = BLOSC_LZ4HC_FAST;   
-        cm["BLOSC_SNAPPY_FAST  "] = BLOSC_SNAPPY_FAST;   
-        cm["BLOSC_ZLIB_FAST    "] = BLOSC_ZLIB_FAST;  
-        cm["BLOSC_BLOSCLZ_BEST "] = BLOSC_BLOSCLZ_BEST;  
-        cm["BLOSC_LZ4_BEST     "] = BLOSC_LZ4_BEST; 
-        cm["BLOSC_LZ4HC_BEST   "] = BLOSC_LZ4HC_BEST;   
-        cm["BLOSC_SNAPPY_BEST  "] = BLOSC_SNAPPY_BEST;  
-        cm["BLOSC_ZLIB_BEST    "] = BLOSC_ZLIB_BEST;    
+        std::map<std::string, CompressionMethod> cm = compressorList();
         
-        int nthreads = std::thread::hardware_concurrency();
         cout << "nthreads = " << nthreads << endl;
         
         USETICTOC;
@@ -260,5 +247,6 @@ int main(int argc, char** argv) {
             cout << "  uncompress " << avgTimeUncompress << " ms/block" << endl;
             cout << "  ratio      " << avgCompression << endl;
         }
+#endif
     }
 }
