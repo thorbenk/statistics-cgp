@@ -44,7 +44,8 @@ std::string toString(const vigra::CompressionMethod m);
 typedef std::map<vigra::CompressionMethod, CompressionStatistics> Stats;
 
 Stats statCompressors(
-    const vigra::MultiArrayView<3, uint32_t>& a
+    const vigra::MultiArrayView<3, uint32_t>& a,
+    bool verbose = true
 );
 
 #endif /* COMPRESSORS_HXX */

@@ -117,14 +117,19 @@ int main(int argc, char** argv) {
            
             BW::Roi<3> roi({0,0,0}, tg.shape());
             
-            std::vector<int> L = {16, 32, 40, 45, 48, 50, 64};
+            std::vector<int> L = {32, 64, 92, 128, 160, 192, 256};
             for(int l : L) {
                 BW::Blocking<3> blocking(roi, {l,l,l});
-                for(const auto& x : blocking.blocks()) {
+                auto blocks = blocking.blocks(); 
+                int i=0;
+                for(const auto& x : blocks) {
+                    cout << "\rcompressing " << blocks.size() << " blocks with L=" << l << " "
+                         << "[" << i << "/" << blocks.size() << "]" << flush;
+                    
                     const BW::Roi<3>& blockRoi = x.second;
                     MultiArray<3, uint32_t> a = tg.subarray(blockRoi.p, blockRoi.q);
-                    cout << "compressing block=" << blockRoi.p << " ... " << blockRoi.q << endl;
-                    auto stats = statCompressors(a); 
+                    //cout << "compressing block=" << blockRoi.p << " ... " << blockRoi.q << endl;
+                    auto stats = statCompressors(a, false); 
                     for(const auto& kv : stats) {
                         vigra::CompressionMethod cflag = kv.first;
                         const CompressionStatistics& stat = kv.second;
@@ -137,7 +142,9 @@ int main(int argc, char** argv) {
                                      /* 6 */ << stat.compessionRatio()
                                              << endl;
                     }
+                    ++i;
                 }
+                cout << endl;
             }
         }
         

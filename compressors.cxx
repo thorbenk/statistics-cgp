@@ -71,7 +71,8 @@ std::map<std::string, vigra::CompressionMethod> compressorList() {
 }
 
 Stats statCompressors(
-    const vigra::MultiArrayView<3, uint32_t>& a
+    const vigra::MultiArrayView<3, uint32_t>& a,
+    bool verbose
 ) {
     using std::cout; using std::endl; using std::flush; using std::setw;
     using namespace vigra;
@@ -85,13 +86,17 @@ Stats statCompressors(
     for(const auto& kv : cm) {
         const auto cname = kv.first;
         const auto cflag = kv.second;
-        cout << "compressing with " << cname << flush;
+        if(verbose) {
+            cout << "compressing with " << cname << flush;
+        }
         
         ArrayVector<char> dest;
     
         CompressionStatistics stat;
         
-        cout << "c" << flush;
+        if(verbose) { 
+            cout << "c" << flush;
+        }
         stat.sizeBytesUncompressed = a.size()*sizeof(uint32_t);
         
         TIC;
@@ -99,18 +104,21 @@ Stats statCompressors(
                     dest, cflag, sizeof(uint32_t), nthreads);
         stat.timeCompress = TOCN;
         stat.sizeBytesCompressed = dest.size();
-        
-        cout << "u" << flush;
+        if(verbose) {
+            cout << "u" << flush;
+        }
         
         TIC; 
         uncompress(dest.data(), dest.size(),
                     reinterpret_cast<char *>(a.data()), a.size()*sizeof(uint32_t),
                     cflag, nthreads);
         stat.timeUncompress += TOCN;
-        cout << endl;
-        cout << "  compress   " << stat.msPerMB_compress()   << " MB/ms" << endl;
-        cout << "  uncompress " << stat.msPerMB_uncompress() << " MB/ms" << endl;
-        cout << "  ratio      " << stat.compessionRatio()    << endl;
+        if(verbose) {
+            cout << endl;
+            cout << "  compress   " << stat.msPerMB_compress()   << " MB/ms" << endl;
+            cout << "  uncompress " << stat.msPerMB_uncompress() << " MB/ms" << endl;
+            cout << "  ratio      " << stat.compessionRatio()    << endl;
+        }
         
         stats[cflag] = stat;
     }
