@@ -123,15 +123,5 @@ Stats statCompressors(
         stats[cflag] = stat;
     }
     
-    /*
-    for(const auto& kv : stats) {
-        const CompressionStatistics& s = kv.second;
-        cout << kv.first;
-        cout << setw(10) << s.compessionRatio() << " | "
-             << setw(10) << s.msPerMB_compress() << " | "
-             << setw(10) << s.msPerMB_uncompress() << std::endl;
-    }
-    */
-    
     return stats;
 }
